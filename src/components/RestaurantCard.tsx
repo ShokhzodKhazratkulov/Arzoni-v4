@@ -12,6 +12,7 @@ type RestaurantCardProps = {
   distanceKm?: number;
   durationMin?: number;
   workingHours?: string;
+  category: 'food' | 'clothes';
   onViewReviews?: (id: string) => void;
   onGetDirections?: (id: string) => void;
 };
@@ -26,12 +27,20 @@ export default function RestaurantCard({
   distanceKm,
   durationMin,
   workingHours,
+  category,
   onViewReviews,
   onGetDirections,
 }: RestaurantCardProps) {
   const { t } = useTranslation();
   const popularityPercent = dishStatsForSelected ? Math.round(dishStatsForSelected.popularity * 100) : 0;
   const isLowReviewCount = dishStatsForSelected?.reviewCount === 1;
+
+  const getDishLabel = (dish: string) => {
+    if (dish === 'All') {
+      return category === 'food' ? t('allDishes') : t('allClothes');
+    }
+    return t(`dishes.${dish.toLowerCase()}`, t(`clothes.${dish.toLowerCase()}`, dish));
+  };
 
   return (
     <div className={`bg-white rounded-2xl border transition-all p-5 flex flex-col gap-4 ${
@@ -56,7 +65,7 @@ export default function RestaurantCard({
         <div className="flex justify-between items-center py-2 border-y border-gray-50">
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {t('formPrice')} ({t(`dishes.${selectedDish.toLowerCase()}`, t(`clothes.${selectedDish.toLowerCase()}`, selectedDish))})
+              {t('formPrice')} ({getDishLabel(selectedDish)})
             </span>
             <span className={`font-black text-[#1D9E75] ${isLowReviewCount ? 'text-base' : 'text-lg'}`}>
               {dishStatsForSelected.avgPrice.toLocaleString()} {t('som')}
@@ -87,7 +96,7 @@ export default function RestaurantCard({
         {dishStatsForSelected && (
           <div className="bg-gray-50 rounded-xl px-3 py-2">
             <p className="text-xs font-medium text-gray-600">
-              <span className="font-black text-[#1D9E75]">{popularityPercent}%</span> {t('popularity')} <span className="font-black">{t(`dishes.${selectedDish.toLowerCase()}`, t(`clothes.${selectedDish.toLowerCase()}`, selectedDish))}</span>
+              <span className="font-black text-[#1D9E75]">{popularityPercent}%</span> {t('popularity')} <span className="font-black">{getDishLabel(selectedDish)}</span>
             </p>
           </div>
         )}
@@ -109,7 +118,7 @@ export default function RestaurantCard({
                   : 'bg-white border border-gray-100 text-gray-500'
               }`}
             >
-              {t(`dishes.${stats.name.toLowerCase()}`, t(`clothes.${stats.name.toLowerCase()}`, stats.name))}
+              {getDishLabel(stats.name)}
             </span>
           ))}
         </div>

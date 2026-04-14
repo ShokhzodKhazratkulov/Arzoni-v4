@@ -93,20 +93,32 @@ export const getListingsWithStats = async (filters: {
   // Sort
   if (filters.sort === 'price_asc') {
     filtered.sort((a, b) => {
-      const priceA = filters.selectedDish ? (a.dishStats?.[filters.selectedDish]?.avgPrice || 0) : 0;
-      const priceB = filters.selectedDish ? (b.dishStats?.[filters.selectedDish]?.avgPrice || 0) : 0;
+      const priceA = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (a.dishStats?.[filters.selectedDish]?.avgPrice || Infinity) 
+        : (a.avg_price || Infinity);
+      const priceB = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (b.dishStats?.[filters.selectedDish]?.avgPrice || Infinity) 
+        : (b.avg_price || Infinity);
       return priceA - priceB;
     });
   } else if (filters.sort === 'price_desc') {
     filtered.sort((a, b) => {
-      const priceA = filters.selectedDish ? (a.dishStats?.[filters.selectedDish]?.avgPrice || 0) : 0;
-      const priceB = filters.selectedDish ? (b.dishStats?.[filters.selectedDish]?.avgPrice || 0) : 0;
+      const priceA = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (a.dishStats?.[filters.selectedDish]?.avgPrice || 0) 
+        : (a.avg_price || 0);
+      const priceB = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (b.dishStats?.[filters.selectedDish]?.avgPrice || 0) 
+        : (b.avg_price || 0);
       return priceB - priceA;
     });
   } else if (filters.sort === 'rating') {
     filtered.sort((a, b) => {
-      const ratingA = filters.selectedDish ? (a.dishStats?.[filters.selectedDish]?.avgRating || 0) : 0;
-      const ratingB = filters.selectedDish ? (b.dishStats?.[filters.selectedDish]?.avgRating || 0) : 0;
+      const ratingA = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (a.dishStats?.[filters.selectedDish]?.avgRating || 0) 
+        : (a.totalAvgRating || 0);
+      const ratingB = (filters.selectedDish && filters.selectedDish !== 'All') 
+        ? (b.dishStats?.[filters.selectedDish]?.avgRating || 0) 
+        : (b.totalAvgRating || 0);
       return ratingB - ratingA;
     });
   }

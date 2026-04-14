@@ -141,7 +141,7 @@ export default function RestaurantDetailPage() {
                 : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
             }`}
           >
-            {t('allPrices')} ({reviews.length})
+            {restaurant.type === 'food' ? t('allDishes') : t('allClothes')} ({reviews.length})
           </button>
           {dishStats.map((stats) => (
             <button

@@ -145,17 +145,20 @@ function AppContent() {
 
   const filteredListings = useMemo(() => {
     return listings.filter(listing => {
-      const stats = listing.dishStats?.[selectedDish];
+      // If "All" is selected, we use the listing's overall avg_price
+      // Otherwise we use the stats for the specific dish
+      const stats = selectedDish === 'All' ? null : listing.dishStats?.[selectedDish];
+      const priceToFilter = selectedDish === 'All' ? listing.avg_price : stats?.avgPrice;
       
       // Price filter
       let matchesPrice = true;
-      if (selectedPriceRange !== 'all' && stats) {
+      if (selectedPriceRange !== 'all' && priceToFilter !== undefined) {
         const ranges = selectedCategory === 'food' ? PRICE_RANGES : CLOTHING_PRICE_RANGES;
         const range = ranges.find(r => r.id === selectedPriceRange);
         if (range) {
-          matchesPrice = stats.avgPrice >= range.min && stats.avgPrice <= range.max;
+          matchesPrice = priceToFilter >= range.min && priceToFilter <= range.max;
         } else if (selectedPriceRange === 'custom') {
-          matchesPrice = customPrice === 0 || stats.avgPrice <= customPrice;
+          matchesPrice = customPrice === 0 || priceToFilter <= customPrice;
         }
       }
 

@@ -1,5 +1,5 @@
 export const DISH_TYPES = [
-  { id: 'All', label: 'allPrices' },
+  { id: 'All', label: 'allDishes' },
   { id: 'osh', label: 'dishes.osh' },
   { id: 'manti', label: 'dishes.manti' },
   { id: 'dimlama', label: 'dishes.dimlama' },
@@ -16,7 +16,7 @@ export const DISH_TYPES = [
 ];
 
 export const CLOTHING_TYPES = [
-  { id: 'All', label: 'allPrices' },
+  { id: 'All', label: 'allClothes' },
   { id: 'koylak', label: 'clothes.koylak' },
   { id: 'shim', label: 'clothes.shim' },
   { id: 'jinsi', label: 'clothes.jinsi' },

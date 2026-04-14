@@ -97,6 +97,7 @@ export default function RestaurantList({
                 selectedDish={selectedDish}
                 dishStatsForSelected={dishStatsForSelected}
                 allDishStats={Object.values(restaurant.dishStats || {})}
+                category={selectedCategory}
                 onViewReviews={(id) => navigate(`/restaurants/${id}`)}
                 onGetDirections={(id) => {
                   const url = `geo:${restaurant.latitude},${restaurant.longitude}?q=${restaurant.latitude},${restaurant.longitude}(${encodeURIComponent(restaurant.name)})`;

@@ -28,6 +28,9 @@ export interface Listing {
   totalReviewCount?: number;
   likes?: number;
   dislikes?: number;
+  phone?: string;
+  social_link?: string;
+  google_maps_url?: string;
   created_at: string;
   updated_at: string;
   

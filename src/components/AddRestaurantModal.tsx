@@ -50,7 +50,6 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    googleMapsUrl: '',
     dishes: [] as string[],
     price: 0,
     description: '',
@@ -82,7 +81,6 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
       setFormData({
         name: '',
         address: '',
-        googleMapsUrl: '',
         dishes: [],
         price: 0,
         description: '',
@@ -142,13 +140,25 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
 
   const handleMapClick = (e: any) => {
     if (e.detail.latLng) {
-      setFormData({
-        ...formData,
+      setFormData(prev => ({
+        ...prev,
         location: {
           lat: e.detail.latLng.lat,
           lng: e.detail.latLng.lng
         }
-      });
+      }));
+    }
+  };
+
+  const handleMarkerDragEnd = (e: any) => {
+    if (e.latLng) {
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          lat: e.latLng.lat(),
+          lng: e.latLng.lng()
+        }
+      }));
     }
   };
 
@@ -161,7 +171,6 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
       await onSubmit({
         name: formData.name,
         address: formData.address,
-        google_maps_url: formData.googleMapsUrl,
         working_hours: formData.workingHours,
         phone: formData.phone,
         social_link: formData.socialLink,
@@ -326,9 +335,9 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
                       <MapPin size={12} />
-                      {t('formMapUrl')}
+                      {t('selectOnMap')}
                     </label>
-                    <div className="h-[180px] w-full rounded-xl overflow-hidden border border-gray-200 relative mb-2">
+                    <div className="h-[220px] w-full rounded-xl overflow-hidden border border-gray-200 relative mb-2">
                       <APIProvider apiKey={apiKey}>
                         <Map
                           defaultCenter={formData.location}
@@ -342,7 +351,11 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
                           zoomControl={true}
                           gestureHandling={'greedy'}
                         >
-                          <AdvancedMarker position={formData.location}>
+                          <AdvancedMarker 
+                            position={formData.location}
+                            draggable={true}
+                            onDragEnd={handleMarkerDragEnd}
+                          >
                             <Pin background={themeColor} borderColor={'#ffffff'} glyphColor={'#ffffff'} />
                           </AdvancedMarker>
                         </Map>
@@ -355,15 +368,6 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
                         <MapPin size={20} />
                       </button>
                     </div>
-                    <input
-                      id="google-maps-url"
-                      name="googleMapsUrl"
-                      type="text"
-                      value={formData.googleMapsUrl}
-                      onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
-                      className={`w-full px-4 py-2 border border-gray-200 rounded-xl ${themeRing} focus:outline-none`}
-                      placeholder="Google Maps URL (optional if selected on map)"
-                    />
                   </div>
                 </div>
 
