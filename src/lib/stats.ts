@@ -28,7 +28,7 @@ export function computeDishStats(reviews: Review[]): DishStats[] {
 export function filterReviewsByDishAndSort(
   reviews: Review[],
   selectedDish: string,
-  sortKey: 'recent' | 'cheapest' | 'highest_rating'
+  sortKey: 'recent' | 'cheapest' | 'most_expensive' | 'highest_rating'
 ): Review[] {
   let filtered = reviews;
   if (selectedDish !== 'All') {
@@ -41,6 +41,9 @@ export function filterReviewsByDishAndSort(
     }
     if (sortKey === 'cheapest') {
       return (a.price_paid || 0) - (b.price_paid || 0);
+    }
+    if (sortKey === 'most_expensive') {
+      return (b.price_paid || 0) - (a.price_paid || 0);
     }
     if (sortKey === 'highest_rating') {
       return b.rating - a.rating;

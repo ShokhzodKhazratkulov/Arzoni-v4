@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Star, ChevronLeft, Calendar, Tag, MessageSquare, DollarSign, Info, Camera, X } from 'lucide-react';
 import { AddReviewFormState } from '../types';
-import { DISH_TYPES } from '../constants';
+import { DISH_TYPES, CLOTHING_TYPES } from '../constants';
 import { supabase } from '../supabase';
 import imageCompression from 'browser-image-compression';
 import { useTranslation } from 'react-i18next';
 import { createReview } from '../services/reviews';
+import { getListingById } from '../services/listings';
 
 interface AddReviewPageProps {
   onReviewAdded?: () => void;
@@ -19,6 +20,7 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [listingType, setListingType] = useState<'food' | 'clothes'>('food');
 
   const [form, setForm] = useState<AddReviewFormState>({
     dish: 'Osh',
@@ -32,6 +34,22 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
     text: '',
     tags: [],
   });
+
+  useState(() => {
+    if (id) {
+      getListingById(id).then(listing => {
+        if (listing) {
+          setListingType(listing.type);
+          setForm(prev => ({
+            ...prev,
+            dish: listing.type === 'food' ? 'osh' : 'koylak'
+          }));
+        }
+      });
+    }
+  });
+
+  const typesToUse = listingType === 'food' ? DISH_TYPES : CLOTHING_TYPES;
 
   const handleRatingChange = (rating: number) => {
     setForm((prev) => ({ ...prev, rating }));
@@ -109,8 +127,12 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
 
     setIsSubmitting(true);
     try {
-      // Note: photo handling could be expanded to store in reviews table if needed
-      // but the user request focuses on the core review data.
+      let uploadedPhotoUrls: string[] = [];
+      
+      if (photoFiles.length > 0) {
+        const uploadPromises = photoFiles.map(file => uploadImage(file, `reviews/${id}`));
+        uploadedPhotoUrls = await Promise.all(uploadPromises);
+      }
       
       await createReview({
         listing_id: id,
@@ -123,13 +145,14 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
         title: form.title,
         text: form.text,
         tags: form.tags,
+        photo_urls: uploadedPhotoUrls,
       });
 
       if (onReviewAdded) {
         onReviewAdded();
       }
       
-      navigate(`/restaurants/${id}`);
+      navigate(`/restaurants/${id}`, { replace: true });
     } catch (err: any) {
       console.error('Error submitting review:', err);
       setError(err.message || 'Failed to submit review. Please try again.');
@@ -160,7 +183,7 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
             <label className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-wider">
               <Info size={16} className="text-[#1D9E75]" />
-              {t('whatDidYouEat')} *
+              {listingType === 'food' ? t('whatDidYouEat') : t('whatDidYouBuy')} *
             </label>
             <select
               name="dish"
@@ -168,7 +191,7 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
               onChange={handleInputChange}
               className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1D9E75] font-bold text-gray-900"
             >
-              {DISH_TYPES.map(d => (
+              {typesToUse.map(d => (
                 <option key={d.id} value={d.id}>{t(d.label)}</option>
               ))}
               <option value="Custom">{t('otherDish')}</option>
@@ -178,7 +201,7 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
               <input
                 type="text"
                 name="customDishName"
-                placeholder={t('customDishPlaceholder')}
+                placeholder={listingType === 'food' ? t('customDishPlaceholder') : t('customItemPlaceholder')}
                 value={form.customDishName}
                 onChange={handleInputChange}
                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1D9E75] font-bold text-gray-900"

@@ -1,6 +1,7 @@
-import { Star, MapPin, Navigation, MessageSquare } from 'lucide-react';
+import { Star, MapPin, Navigation, MessageSquare, Quote } from 'lucide-react';
 import { DishStats } from '../types';
 import { useTranslation } from 'react-i18next';
+import { getMapUrl } from '../lib/utils';
 
 type RestaurantCardProps = {
   restaurantId: string;
@@ -105,6 +106,15 @@ export default function RestaurantCard({
           <p className="text-[10px] text-gray-400 italic px-1">
             {t('lowReviewWarning')}
           </p>
+        )}
+
+        {dishStatsForSelected?.bestComment && (
+          <div className="bg-green-50/50 p-3 rounded-xl border border-green-100/50 relative">
+            <Quote size={12} className="text-[#1D9E75] opacity-20 absolute top-2 left-2" />
+            <p className="text-[11px] text-gray-600 italic line-clamp-2 pl-4">
+              "{dishStatsForSelected.bestComment}"
+            </p>
+          </div>
         )}
 
         {/* Dish Chips - Now on its own line below popularity */}

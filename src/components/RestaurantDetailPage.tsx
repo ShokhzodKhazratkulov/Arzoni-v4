@@ -1,19 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Star, Navigation, MessageSquare, TrendingUp, DollarSign, Globe } from 'lucide-react';
+import { ChevronLeft, Star, Navigation, MessageSquare, TrendingUp, DollarSign, Globe, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Review, Listing, DishStats } from '../types';
 import { computeDishStats, filterReviewsByDishAndSort } from '../lib/stats';
 import { useTranslation } from 'react-i18next';
 import { translateBatch } from '../services/translationService';
 import { getListingById } from '../services/listings';
-import { getReviewsByListingId } from '../services/reviews';
+import { getReviewsByListingId, likeReview, dislikeReview } from '../services/reviews';
+import { getMapUrl } from '../lib/utils';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [selectedDish, setSelectedDish] = useState<string>('All');
-  const [sortKey, setSortKey] = useState<'recent' | 'cheapest' | 'highest_rating'>('recent');
+  const [sortKey, setSortKey] = useState<'recent' | 'cheapest' | 'most_expensive' | 'highest_rating'>('recent');
   const [restaurant, setRestaurant] = useState<Listing | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [translatedReviews, setTranslatedReviews] = useState<Record<string, string>>({});
@@ -86,6 +87,24 @@ export default function RestaurantDetailPage() {
     if (dishStats.length === 0) return null;
     return [...dishStats].sort((a, b) => a.avgPrice - b.avgPrice)[0];
   }, [dishStats]);
+
+  const handleLike = async (reviewId: string) => {
+    try {
+      await likeReview(reviewId);
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, likes: (r.likes || 0) + 1 } : r));
+    } catch (error) {
+      console.error('Error liking review:', error);
+    }
+  };
+
+  const handleDislike = async (reviewId: string) => {
+    try {
+      await dislikeReview(reviewId);
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, dislikes: (r.dislikes || 0) + 1 } : r));
+    } catch (error) {
+      console.error('Error disliking review:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -244,8 +263,9 @@ export default function RestaurantDetailPage() {
                 onChange={(e) => setSortKey(e.target.value as any)}
                 className="bg-transparent text-xs font-black text-[#1D9E75] focus:outline-none cursor-pointer"
               >
-                <option value="recent">{t('price_asc')}</option>
-                <option value="cheapest">{t('price_desc')}</option>
+                <option value="recent">{t('recent')}</option>
+                <option value="cheapest">{t('price_asc')}</option>
+                <option value="most_expensive">{t('price_desc')}</option>
                 <option value="highest_rating">{t('rating')}</option>
               </select>
             </div>
@@ -304,6 +324,23 @@ export default function RestaurantDetailPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="flex items-center gap-4 pt-2 border-t border-gray-50">
+                  <button 
+                    onClick={() => handleLike(review.id!)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-[#1D9E75] transition-colors"
+                  >
+                    <ThumbsUp size={14} />
+                    <span>{review.likes || 0}</span>
+                  </button>
+                  <button 
+                    onClick={() => handleDislike(review.id!)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <ThumbsDown size={14} />
+                    <span>{review.dislikes || 0}</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -314,8 +351,8 @@ export default function RestaurantDetailPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex gap-4">
         <button 
           onClick={() => {
-            const url = `geo:${restaurant.latitude},${restaurant.longitude}?q=${restaurant.latitude},${restaurant.longitude}(${encodeURIComponent(restaurant.name)})`;
-            window.location.href = url;
+            const url = getMapUrl(restaurant.latitude, restaurant.longitude, restaurant.name);
+            window.open(url, '_blank');
           }}
           className="flex-1 bg-gray-100 text-gray-900 p-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-gray-200 transition-all"
         >

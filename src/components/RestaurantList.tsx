@@ -3,6 +3,7 @@ import { Listing, SortOption, DishStats } from '../types';
 import RestaurantCard from './RestaurantCard';
 import { ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getMapUrl } from '../lib/utils';
 
 interface RestaurantListProps {
   restaurants: Listing[];
@@ -100,8 +101,8 @@ export default function RestaurantList({
                 category={selectedCategory}
                 onViewReviews={(id) => navigate(`/restaurants/${id}`)}
                 onGetDirections={(id) => {
-                  const url = `geo:${restaurant.latitude},${restaurant.longitude}?q=${restaurant.latitude},${restaurant.longitude}(${encodeURIComponent(restaurant.name)})`;
-                  window.location.href = url;
+                  const url = getMapUrl(restaurant.latitude, restaurant.longitude, restaurant.name);
+                  window.open(url, '_blank');
                 }}
               />
             );
