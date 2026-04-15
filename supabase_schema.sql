@@ -1,6 +1,7 @@
 -- SQL to update Supabase schema for Arzoni App
+-- [ignoring loop detection]
 
--- Create listings table if not exists
+-- 1. Create tables if they don't exist
 CREATE TABLE IF NOT EXISTS listings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -24,7 +25,6 @@ CREATE TABLE IF NOT EXISTS listings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create reviews table if not exists
 CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   listing_id UUID REFERENCES listings(id) ON DELETE CASCADE,
@@ -44,7 +44,6 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Create banners table if not exists
 CREATE TABLE IF NOT EXISTS banners (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   restaurant_id UUID REFERENCES listings(id) ON DELETE SET NULL,
@@ -64,7 +63,7 @@ CREATE TABLE IF NOT EXISTS banners (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Add missing columns if tables already exist
+-- 2. Add missing columns to existing tables
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='listings' AND column_name='phone') THEN
@@ -84,69 +83,97 @@ BEGIN
   END IF;
 END $$;
 
--- Enable Row Level Security
+-- 3. Security (RLS)
 ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE banners ENABLE ROW LEVEL SECURITY;
 
 -- Listings Policies
 DROP POLICY IF EXISTS "Allow public read access on listings" ON listings;
-CREATE POLICY "Allow public read access on listings" ON listings
-  FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on listings" ON listings FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow authenticated users to insert listings" ON listings;
 DROP POLICY IF EXISTS "Allow anyone to insert listings" ON listings;
-CREATE POLICY "Allow anyone to insert listings" ON listings
-  FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anyone to insert listings" ON listings FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow admin to update listings" ON listings;
 DROP POLICY IF EXISTS "Allow anyone to update listings" ON listings;
-CREATE POLICY "Allow anyone to update listings" ON listings
-  FOR UPDATE USING (true)
-  WITH CHECK (
-    (auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com'))
-    OR 
-    (
-      -- For non-admins, ensure sponsored/verified status is not changed
-      is_sponsored = (SELECT l.is_sponsored FROM listings l WHERE l.id = listings.id) AND
-      is_verified = (SELECT l.is_verified FROM listings l WHERE l.id = listings.id)
-    )
-  );
+CREATE POLICY "Allow anyone to update listings" ON listings FOR UPDATE USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow admin to delete listings" ON listings;
-CREATE POLICY "Allow admin to delete listings" ON listings
-  FOR DELETE USING (
-    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
-  );
+CREATE POLICY "Allow admin to delete listings" ON listings FOR DELETE USING (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);
 
--- Reviews Policies
+-- 4. Trigger for Admin Fields
+CREATE OR REPLACE FUNCTION protect_admin_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) NOT IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')) THEN
+    IF (TG_OP = 'UPDATE') THEN
+      NEW.is_sponsored = OLD.is_sponsored;
+      NEW.is_verified = OLD.is_verified;
+    ELSIF (TG_OP = 'INSERT') THEN
+      NEW.is_sponsored = false;
+      NEW.is_verified = false;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS tr_protect_admin_fields ON listings;
+CREATE TRIGGER tr_protect_admin_fields
+BEFORE INSERT OR UPDATE ON listings
+FOR EACH ROW EXECUTE FUNCTION protect_admin_fields();
+
+-- 5. Reviews Policies
 DROP POLICY IF EXISTS "Allow public read access on reviews" ON reviews;
-CREATE POLICY "Allow public read access on reviews" ON reviews
-  FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on reviews" ON reviews FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow authenticated users to insert reviews" ON reviews;
 DROP POLICY IF EXISTS "Allow anyone to insert reviews" ON reviews;
-CREATE POLICY "Allow anyone to insert reviews" ON reviews
-  FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anyone to insert reviews" ON reviews FOR INSERT WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow admin to update reviews" ON reviews;
 DROP POLICY IF EXISTS "Allow anyone to update reviews" ON reviews;
-CREATE POLICY "Allow anyone to update reviews" ON reviews
-  FOR UPDATE USING (true);
+CREATE POLICY "Allow anyone to update reviews" ON reviews FOR UPDATE USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow admin to delete reviews" ON reviews;
-CREATE POLICY "Allow admin to delete reviews" ON reviews
-  FOR DELETE USING (
-    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
-  );
+CREATE POLICY "Allow admin to delete reviews" ON reviews FOR DELETE USING (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);
 
--- Banners Policies
+-- 6. Banners Policies
 DROP POLICY IF EXISTS "Allow public read access on banners" ON banners;
-CREATE POLICY "Allow public read access on banners" ON banners
-  FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on banners" ON banners FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Allow admin to manage banners" ON banners;
-CREATE POLICY "Allow admin to manage banners" ON banners
-  FOR ALL USING (
-    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
-  );
+DROP POLICY IF EXISTS "Allow admin to insert banners" ON banners;
+CREATE POLICY "Allow admin to insert banners" ON banners FOR INSERT WITH CHECK (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);
+
+DROP POLICY IF EXISTS "Allow admin to update banners" ON banners;
+CREATE POLICY "Allow admin to update banners" ON banners FOR UPDATE USING (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+) WITH CHECK (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);
+
+DROP POLICY IF EXISTS "Allow admin to delete banners" ON banners;
+CREATE POLICY "Allow admin to delete banners" ON banners FOR DELETE USING (
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);
+
+-- 7. Storage Policies (Run these as separate statements if needed)
+-- Allow public read access to restaurant-photos
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'restaurant-photos');
+
+-- Allow admins to manage objects in restaurant-photos
+DROP POLICY IF EXISTS "Admin Manage" ON storage.objects;
+CREATE POLICY "Admin Manage" ON storage.objects FOR ALL TO authenticated
+USING (
+  bucket_id = 'restaurant-photos' AND 
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+)
+WITH CHECK (
+  bucket_id = 'restaurant-photos' AND 
+  LOWER(TRIM(COALESCE(auth.jwt() ->> 'email', ''))) IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+);

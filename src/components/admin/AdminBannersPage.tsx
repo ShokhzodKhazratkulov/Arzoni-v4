@@ -212,7 +212,7 @@ export const AdminBannersPage: React.FC = () => {
   const openEditForm = (banner: Banner) => {
     setEditingBanner(banner);
     setFormData({
-      name: banner.restaurant_name || '',
+      name: banner.name || '',
       restaurant_id: banner.restaurant_id || '',
       expiry_date: new Date(banner.end_date).toISOString().split('T')[0],
       start_date: new Date(banner.start_date || Date.now()).toISOString().split('T')[0],
@@ -459,6 +459,19 @@ export const AdminBannersPage: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-8">
+                {/* Banner Name */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Banner Name / Campaign</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="e.g. Summer Sale 2024"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  />
+                </div>
+
                 {/* Image Upload Tabs */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
