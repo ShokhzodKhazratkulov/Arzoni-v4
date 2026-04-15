@@ -21,6 +21,7 @@ export interface Listing {
   is_verified: boolean;
   is_active: boolean;
   photo_url?: string;
+  photo_urls?: string[];
   description?: string;
   dishes: string[];
   avg_price?: number;

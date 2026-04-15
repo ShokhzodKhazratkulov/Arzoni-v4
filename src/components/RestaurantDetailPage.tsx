@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Star, Navigation, MessageSquare, TrendingUp, DollarSign, Globe, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ChevronLeft, Star, Navigation, MessageSquare, TrendingUp, DollarSign, Globe, ThumbsUp, ThumbsDown, Phone, Instagram, Send, Edit, MapPin, Clock, Info } from 'lucide-react';
 import { Review, Listing, DishStats } from '../types';
 import { computeDishStats, filterReviewsByDishAndSort } from '../lib/stats';
 import { useTranslation } from 'react-i18next';
 import { translateBatch } from '../services/translationService';
-import { getListingById } from '../services/listings';
-import { getReviewsByListingId, likeReview, dislikeReview } from '../services/reviews';
-import { getMapUrl } from '../lib/utils';
+import { getListingById, updateListing } from '../services/listings';
+import { getReviewsByListingId, likeReview, dislikeReview, createReview } from '../services/reviews';
+import { getMapUrl, uploadImage } from '../lib/utils';
+import AddRestaurantModal from './AddRestaurantModal';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,34 +21,82 @@ export default function RestaurantDetailPage() {
   const [translatedReviews, setTranslatedReviews] = useState<Record<string, string>>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const fetchData = async () => {
+    if (!id) return;
+    setLoading(true);
+
+    try {
+      const [restData, revData] = await Promise.all([
+        getListingById(id),
+        getReviewsByListingId(id)
+      ]);
+
+      if (restData) {
+        setRestaurant(restData);
+      }
+
+      if (revData) {
+        setReviews(revData);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-      setLoading(true);
-
-      try {
-        const [restData, revData] = await Promise.all([
-          getListingById(id),
-          getReviewsByListingId(id)
-        ]);
-
-        if (restData) {
-          setRestaurant(restData);
-        }
-
-        if (revData) {
-          setReviews(revData);
-        }
-      } catch (error) {
-        console.error('Error fetching restaurant details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [id]);
+
+  const handleUpdateListing = async (data: any) => {
+    try {
+      const { photoFiles, id: listingId, ...listingData } = data;
+      
+      let photo_urls = listingData.photo_urls || [];
+      if (photoFiles && photoFiles.length > 0) {
+        const uploadPromises = photoFiles.map((file: File) => uploadImage(file, 'listings'));
+        const newUrls = await Promise.all(uploadPromises);
+        photo_urls = [...photo_urls, ...newUrls];
+      }
+
+      const finalData = { 
+        ...listingData, 
+        photo_urls,
+        photo_url: photo_urls[0] || listingData.photo_url 
+      };
+      
+      await updateListing(listingId, finalData);
+      fetchData();
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error('Error updating restaurant:', error);
+      throw error;
+    }
+  };
+
+  const handleAddReview = async (listingId: string, reviewData: any) => {
+    try {
+      await createReview({
+        listing_id: listingId,
+        dish_name: reviewData.dish === 'Custom' ? reviewData.customDishName : reviewData.dish,
+        price_paid: parseInt(reviewData.pricePaid),
+        rating: reviewData.rating,
+        visit_date: reviewData.visitDate,
+        price_feeling: reviewData.priceFeeling,
+        portion_size: reviewData.portionSize,
+        title: reviewData.title,
+        text: reviewData.text,
+        tags: reviewData.tags
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error adding review:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const translateReviews = async () => {
@@ -125,31 +174,139 @@ export default function RestaurantDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10 p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
-            <ChevronLeft size={24} className="text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-gray-900 leading-tight">{restaurant.name}</h1>
-            <div className="flex flex-col">
-              <p className="text-xs text-gray-400 font-bold">{restaurant.address}</p>
-              <p className="text-[10px] text-gray-500 font-bold mt-0.5">
-                {t('workingHours')}: {restaurant.working_hours || t('noDataHours')}
-              </p>
-            </div>
+      {/* Hero Section / Gallery */}
+      <div className="relative h-[250px] sm:h-[350px] w-full bg-gray-200 overflow-hidden">
+        {restaurant.photo_urls && restaurant.photo_urls.length > 0 ? (
+          <div className="flex h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+            {restaurant.photo_urls.map((url, idx) => (
+              <img 
+                key={idx}
+                src={url} 
+                alt={`${restaurant.name} ${idx + 1}`} 
+                className="w-full h-full object-cover flex-shrink-0 snap-center"
+                referrerPolicy="no-referrer"
+              />
+            ))}
+          </div>
+        ) : restaurant.photo_url ? (
+          <img 
+            src={restaurant.photo_url} 
+            alt={restaurant.name} 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <Globe size={48} />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+        <button 
+          onClick={() => navigate(-1)} 
+          className="absolute top-4 left-4 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-all z-10"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <div className="absolute bottom-6 left-6 right-6 text-white pointer-events-none">
+          <h1 className="text-3xl font-black leading-tight">{restaurant.name}</h1>
+          <div className="flex items-center gap-2 text-white/80 text-sm mt-1">
+            <MapPin size={14} />
+            <span>{restaurant.address}</span>
           </div>
         </div>
-        <button
-          onClick={() => navigate(`/restaurants/${id}/review`)}
-          className="bg-[#1D9E75] text-white px-4 py-2 rounded-xl text-xs font-black shadow-md hover:bg-[#168a65] transition-all"
-        >
-          {t('addReview')}
-        </button>
-      </header>
+        {restaurant.photo_urls && restaurant.photo_urls.length > 1 && (
+          <div className="absolute bottom-6 right-6 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-widest">
+            {restaurant.photo_urls.length} Photos
+          </div>
+        )}
+      </div>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-6">
+      <main className="max-w-2xl mx-auto p-4 space-y-6 -mt-6 relative z-10">
+        {/* Quick Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate(`/restaurants/${id}/review`)}
+            className="flex-1 bg-[#1D9E75] text-white py-4 rounded-2xl font-black shadow-lg hover:bg-[#168a65] transition-all flex items-center justify-center gap-2"
+          >
+            <MessageSquare size={18} />
+            {t('addReview')}
+          </button>
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-6 bg-white text-gray-600 py-4 rounded-2xl font-black shadow-md border border-gray-100 hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+          >
+            <Edit size={18} />
+            {t('edit')}
+          </button>
+        </div>
+
+        {/* About Section */}
+        <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">{t('about')}</h3>
+            <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-100">
+              <Star size={14} className="text-yellow-400 fill-yellow-400" />
+              <span className="text-sm font-black text-yellow-700">{(restaurant.totalAvgRating || 0).toFixed(1)}</span>
+            </div>
+          </div>
+          
+          {restaurant.description && (
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {restaurant.description}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="flex items-center gap-3 text-gray-600">
+              <Clock size={18} className="text-[#1D9E75]" />
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase">{t('workingHours')}</p>
+                <p className="text-sm font-bold">{restaurant.working_hours || t('noDataHours')}</p>
+              </div>
+            </div>
+            {restaurant.phone && (
+              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-3 text-gray-600 hover:text-[#1D9E75] transition-colors">
+                <Phone size={18} className="text-[#1D9E75]" />
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase">{t('formPhone')}</p>
+                  <p className="text-sm font-bold">{restaurant.phone}</p>
+                </div>
+              </a>
+            )}
+          </div>
+
+          {restaurant.social_link && (
+            <div className="pt-4 border-t border-gray-50 flex gap-3">
+              <a 
+                href={restaurant.social_link.startsWith('http') ? restaurant.social_link : `https://t.me/${restaurant.social_link.replace('@', '')}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-black hover:bg-blue-100 transition-all"
+              >
+                {restaurant.social_link.includes('instagram') ? <Instagram size={14} /> : <Send size={14} />}
+                {t('socialMedia')}
+              </a>
+            </div>
+          )}
+        </section>
+
+        {/* Menu / Items Section */}
+        {restaurant.dishes && restaurant.dishes.length > 0 && (
+          <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">{restaurant.type === 'food' ? t('popularDishes') : t('popularDishesClothes')}</h3>
+            <div className="flex flex-wrap gap-2">
+              {restaurant.dishes.map((dish) => (
+                <span 
+                  key={dish}
+                  className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg border border-gray-100"
+                >
+                  {t(`dishes.${dish.toLowerCase()}`, t(`clothes.${dish.toLowerCase()}`, dish))}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Dish Filter Chips */}
         <section className="flex flex-wrap gap-2">
           <button
@@ -348,7 +505,7 @@ export default function RestaurantDetailPage() {
       </main>
 
       {/* Footer Actions */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex gap-4">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex gap-4 z-20">
         <button 
           onClick={() => {
             const url = getMapUrl(restaurant.latitude, restaurant.longitude, restaurant.name);
@@ -360,6 +517,15 @@ export default function RestaurantDetailPage() {
           {t('getDirections')}
         </button>
       </footer>
+
+      <AddRestaurantModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSubmit={handleUpdateListing}
+        onAddReview={handleAddReview}
+        initialRestaurant={restaurant}
+        selectedCategory={restaurant.type}
+      />
     </div>
   );
 }

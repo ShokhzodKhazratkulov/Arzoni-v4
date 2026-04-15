@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS listings (
   is_verified BOOLEAN DEFAULT false,
   is_active BOOLEAN DEFAULT true,
   photo_url TEXT,
+  photo_urls TEXT[] DEFAULT '{}',
   description TEXT,
   dishes TEXT[] DEFAULT '{}',
   avg_price NUMERIC DEFAULT 0,
@@ -82,3 +83,70 @@ BEGIN
     ALTER TABLE listings ADD COLUMN dishes TEXT[] DEFAULT '{}';
   END IF;
 END $$;
+
+-- Enable Row Level Security
+ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE banners ENABLE ROW LEVEL SECURITY;
+
+-- Listings Policies
+DROP POLICY IF EXISTS "Allow public read access on listings" ON listings;
+CREATE POLICY "Allow public read access on listings" ON listings
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to insert listings" ON listings;
+DROP POLICY IF EXISTS "Allow anyone to insert listings" ON listings;
+CREATE POLICY "Allow anyone to insert listings" ON listings
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow admin to update listings" ON listings;
+DROP POLICY IF EXISTS "Allow anyone to update listings" ON listings;
+CREATE POLICY "Allow anyone to update listings" ON listings
+  FOR UPDATE USING (true)
+  WITH CHECK (
+    (auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com'))
+    OR 
+    (
+      -- For non-admins, ensure sponsored/verified status is not changed
+      is_sponsored = (SELECT l.is_sponsored FROM listings l WHERE l.id = listings.id) AND
+      is_verified = (SELECT l.is_verified FROM listings l WHERE l.id = listings.id)
+    )
+  );
+
+DROP POLICY IF EXISTS "Allow admin to delete listings" ON listings;
+CREATE POLICY "Allow admin to delete listings" ON listings
+  FOR DELETE USING (
+    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+  );
+
+-- Reviews Policies
+DROP POLICY IF EXISTS "Allow public read access on reviews" ON reviews;
+CREATE POLICY "Allow public read access on reviews" ON reviews
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to insert reviews" ON reviews;
+DROP POLICY IF EXISTS "Allow anyone to insert reviews" ON reviews;
+CREATE POLICY "Allow anyone to insert reviews" ON reviews
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow admin to update reviews" ON reviews;
+DROP POLICY IF EXISTS "Allow anyone to update reviews" ON reviews;
+CREATE POLICY "Allow anyone to update reviews" ON reviews
+  FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Allow admin to delete reviews" ON reviews;
+CREATE POLICY "Allow admin to delete reviews" ON reviews
+  FOR DELETE USING (
+    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+  );
+
+-- Banners Policies
+DROP POLICY IF EXISTS "Allow public read access on banners" ON banners;
+CREATE POLICY "Allow public read access on banners" ON banners
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow admin to manage banners" ON banners;
+CREATE POLICY "Allow admin to manage banners" ON banners
+  FOR ALL USING (
+    auth.jwt() ->> 'email' IN ('khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com')
+  );

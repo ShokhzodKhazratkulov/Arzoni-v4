@@ -8,6 +8,8 @@ import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps
 import { supabase } from '../supabase';
 import { Listing } from '../types';
 
+import { useAuth } from '../lib/AuthContext';
+
 enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -44,6 +46,7 @@ interface AddRestaurantModalProps {
 
 export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddReview, initialRestaurant, selectedCategory }: AddRestaurantModalProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const apiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || '';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,49 +70,81 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
   const themeRing = formData.category === 'food' ? 'focus:ring-[#1D9E75]' : 'focus:ring-blue-500';
   const themeHover = formData.category === 'food' ? 'hover:bg-[#168a65]' : 'hover:bg-blue-600';
 
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const mapRef = useRef<google.maps.Map | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
-      setPhoto(null);
-      setPhotoFile(null);
-      setFormData({
-        name: '',
-        address: '',
-        dishes: [],
-        price: 0,
-        description: '',
-        workingHours: '',
-        phone: '',
-        socialLink: '',
-        submitter: '',
-        location: TASHKENT_CENTER,
-        category: selectedCategory
-      });
+    if (isOpen) {
+      if (initialRestaurant) {
+        setFormData({
+          name: initialRestaurant.name || '',
+          address: initialRestaurant.address || '',
+          dishes: initialRestaurant.dishes || [],
+          price: initialRestaurant.avg_price || 0,
+          description: initialRestaurant.description || '',
+          workingHours: initialRestaurant.working_hours || '',
+          phone: initialRestaurant.phone || '',
+          socialLink: initialRestaurant.social_link || '',
+          submitter: '',
+          location: { lat: initialRestaurant.latitude, lng: initialRestaurant.longitude },
+          category: initialRestaurant.type || selectedCategory
+        });
+        setPhotos(initialRestaurant.photo_urls || (initialRestaurant.photo_url ? [initialRestaurant.photo_url] : []));
+      } else {
+        setPhotos([]);
+        setPhotoFiles([]);
+        setFormData({
+          name: '',
+          address: '',
+          dishes: [],
+          price: 0,
+          description: '',
+          workingHours: '',
+          phone: '',
+          socialLink: '',
+          submitter: '',
+          location: TASHKENT_CENTER,
+          category: selectedCategory
+        });
+      }
     }
-  }, [isOpen, selectedCategory]);
+  }, [isOpen, initialRestaurant, selectedCategory]);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    if (file.size > 5 * 1024 * 1024) {
-      setLocalError(t('imageTooLarge') || "Image is too large. Max 5MB.");
-      return;
-    }
+    const newFiles = Array.from(files);
+    const validFiles = newFiles.filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        setLocalError(t('imageTooLarge') || "Image is too large. Max 5MB.");
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
     setLocalError(null);
-    setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhoto(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setPhotoFiles(prev => [...prev, ...validFiles]);
+    
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotos(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    // Note: photoFiles might be harder to sync if we have mixed existing URLs and new files
+    // But we'll handle it in handleSubmit by filtering out data URLs
   };
 
   const toggleDish = (id: string) => {
@@ -165,23 +200,29 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+
     setIsSubmitting(true);
     
     try {
       await onSubmit({
+        id: initialRestaurant?.id,
         name: formData.name,
         address: formData.address,
         working_hours: formData.workingHours,
         phone: formData.phone,
         social_link: formData.socialLink,
+        description: formData.description,
         latitude: formData.location.lat,
         longitude: formData.location.lng,
         type: formData.category,
+        dishes: formData.dishes,
         is_active: true,
-        is_sponsored: false,
-        is_verified: false,
-        photoFile: photoFile,
-        created_at: new Date().toISOString()
+        is_sponsored: initialRestaurant?.is_sponsored || false,
+        is_verified: initialRestaurant?.is_verified || false,
+        photoFiles: photoFiles,
+        photo_urls: photos.filter(p => p.startsWith('http')), // Keep existing URLs
+        photo_url: photos.find(p => p.startsWith('http')) || initialRestaurant?.photo_url,
+        created_at: initialRestaurant?.created_at || new Date().toISOString()
       });
       onClose();
     } catch (error: any) {
@@ -198,44 +239,36 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
         <Camera size={12} />
         {t('addPhoto')}
       </label>
-      <div className="flex items-center gap-4">
-        {photo ? (
-          <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 group">
-            <img src={photo} alt="Captured" className="w-full h-full object-cover" />
+      <div className="flex flex-wrap gap-4">
+        {photos.map((p, idx) => (
+          <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 group">
+            <img src={p} alt="Captured" className="w-full h-full object-cover" />
             <button
               type="button"
-              onClick={() => {
-                setPhoto(null);
-                setPhotoFile(null);
-              }}
+              onClick={() => removePhoto(idx)}
               className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
             >
               <X size={20} />
             </button>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={`w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-[#1D9E75] hover:text-[#1D9E75] transition-all`}
-          >
-            <Camera size={24} />
-            <span className="text-[10px] font-bold mt-1 uppercase">{t('takePhoto')}</span>
-          </button>
-        )}
+        ))}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className={`w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-[#1D9E75] hover:text-[#1D9E75] transition-all`}
+        >
+          <Camera size={24} />
+          <span className="text-[10px] font-bold mt-1 uppercase">{t('takePhoto')}</span>
+        </button>
         <input
           type="file"
           accept="image/*"
           capture="environment"
+          multiple
           ref={fileInputRef}
           onChange={handleCapture}
           className="hidden"
         />
-        {!photo && (
-          <p className="text-[10px] text-gray-400 italic max-w-[150px]">
-            {t('cameraOnlyHint')}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -252,7 +285,10 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
           >
             <div className={`p-6 border-b border-gray-100 flex justify-between items-center ${themeBg} text-white`}>
               <h2 className="text-xl font-bold">
-                {formData.category === 'food' ? t('addRestaurant') : t('addShop')}
+                {initialRestaurant 
+                  ? t('editPlace') 
+                  : (formData.category === 'food' ? t('addRestaurant') : t('addShop'))
+                }
               </h2>
               <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-all">
                 <X size={24} />
@@ -329,6 +365,19 @@ export default function AddRestaurantModal({ isOpen, onClose, onSubmit, onAddRev
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       className={`w-full px-4 py-2 border border-gray-200 rounded-xl ${themeRing} focus:outline-none`}
                       placeholder="e.g. Beruniy ko'chasi, 12"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="restaurant-description" className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t('description')}</label>
+                    <textarea
+                      id="restaurant-description"
+                      name="description"
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className={`w-full px-4 py-2 border border-gray-200 rounded-xl ${themeRing} focus:outline-none resize-none`}
+                      placeholder={t('commentPlaceholder')}
                     />
                   </div>
 

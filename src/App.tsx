@@ -16,10 +16,11 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Map as MapIcon, LayoutList, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './lib/AuthContext';
-import { getListingsWithStats, createListing } from './services/listings';
+import { getListingsWithStats, createListing, updateListing } from './services/listings';
 import { getActiveBanners } from './services/banners';
 import { createReview } from './services/reviews';
 import { useVisitTracking } from './lib/useVisitTracking';
+import { uploadImage } from './lib/utils';
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -191,15 +192,31 @@ function AppContent() {
 
   const handleAddRestaurant = async (data: any) => {
     try {
-      // The data from AddRestaurantModal is already mapped to the database schema
-      // We extract photoFile to handle it separately if needed, and pass the rest to createListing
-      const { photoFile, ...listingData } = data;
+      const { photoFiles, id, ...listingData } = data;
       
-      await createListing(listingData);
+      let photo_urls = listingData.photo_urls || [];
+      if (photoFiles && photoFiles.length > 0) {
+        const uploadPromises = photoFiles.map((file: File) => uploadImage(file, 'listings'));
+        const newUrls = await Promise.all(uploadPromises);
+        photo_urls = [...photo_urls, ...newUrls];
+      }
+
+      const finalData = { 
+        ...listingData, 
+        photo_urls,
+        photo_url: photo_urls[0] || listingData.photo_url 
+      };
+      
+      if (id) {
+        await updateListing(id, finalData);
+      } else {
+        await createListing(finalData);
+      }
+      
       fetchData();
       setIsAddRestaurantOpen(false);
     } catch (error) {
-      console.error('Error adding restaurant:', error);
+      console.error('Error saving restaurant:', error);
       throw error;
     }
   };
@@ -368,6 +385,7 @@ function AppContent() {
             </main>
           } />
           <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
+          <Route path="/place/:id" element={<RestaurantDetailPage />} />
           <Route path="/restaurants/:id/review" element={<AddReviewPage onReviewAdded={fetchData} />} />
         </Routes>
 

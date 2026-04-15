@@ -4,10 +4,11 @@ import { Star, ChevronLeft, Calendar, Tag, MessageSquare, DollarSign, Info, Came
 import { AddReviewFormState } from '../types';
 import { DISH_TYPES, CLOTHING_TYPES } from '../constants';
 import { supabase } from '../supabase';
-import imageCompression from 'browser-image-compression';
 import { useTranslation } from 'react-i18next';
 import { createReview } from '../services/reviews';
 import { getListingById } from '../services/listings';
+import { uploadImage } from '../lib/utils';
+import { useAuth } from '../lib/AuthContext';
 
 interface AddReviewPageProps {
   onReviewAdded?: () => void;
@@ -17,6 +18,7 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -76,37 +78,6 @@ export default function AddReviewPage({ onReviewAdded }: AddReviewPageProps) {
 
   const removePhoto = (index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const uploadImage = async (file: File, path: string) => {
-    const options = {
-      maxSizeMB: 1,
-      maxWidthOrHeight: 1920,
-      useWebWorker: true,
-    };
-
-    let fileToUpload = file;
-    try {
-      fileToUpload = await imageCompression(file, options);
-    } catch (error) {
-      console.error('Compression failed, uploading original:', error);
-    }
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${path}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('photos')
-      .upload(filePath, fileToUpload);
-
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('photos')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

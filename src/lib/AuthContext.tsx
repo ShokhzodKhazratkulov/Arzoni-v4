@@ -14,8 +14,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define the admin email here
-const ADMIN_EMAIL = 'khazratkulovshokhzod@gmail.com';
+// Define the admin emails here
+const ADMIN_EMAILS = ['khazratkulovshokhzod@gmail.com', 'abdullayevamuborak548@gmail.com'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setIsAdmin(session?.user?.email === ADMIN_EMAIL);
+      setIsAdmin(!!session?.user?.email && ADMIN_EMAILS.includes(session.user.email));
       setLoading(false);
     });
 
@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setIsAdmin(session?.user?.email === ADMIN_EMAIL);
+      setIsAdmin(!!session?.user?.email && ADMIN_EMAILS.includes(session.user.email));
       setLoading(false);
     });
 
