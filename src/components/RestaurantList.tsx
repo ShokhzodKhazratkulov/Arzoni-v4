@@ -13,6 +13,7 @@ interface RestaurantListProps {
   onAddRestaurantClick: () => void;
   selectedDishes: string[];
   selectedCategory: 'food' | 'clothes';
+  isFilterActive: boolean;
 }
 
 export default function RestaurantList({ 
@@ -22,7 +23,8 @@ export default function RestaurantList({
   onAddReview, 
   onAddRestaurantClick,
   selectedDishes, 
-  selectedCategory
+  selectedCategory,
+  isFilterActive
 }: RestaurantListProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -99,6 +101,8 @@ export default function RestaurantList({
                 dishStatsForSelected={dishStatsForSelected}
                 allDishStats={Object.values(restaurant.dishStats || {})}
                 category={selectedCategory}
+                description={restaurant.description}
+                isFilterActive={isFilterActive}
                 onViewReviews={(id) => navigate(`/restaurants/${id}`)}
                 onGetDirections={(id) => {
                   const url = getMapUrl(restaurant.latitude, restaurant.longitude, restaurant.name);

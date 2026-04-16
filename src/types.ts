@@ -32,6 +32,7 @@ export interface Listing {
   phone?: string;
   social_link?: string;
   google_maps_url?: string;
+  google_place_id?: string;
   created_at: string;
   updated_at: string;
   

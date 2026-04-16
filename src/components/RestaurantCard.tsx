@@ -14,6 +14,8 @@ type RestaurantCardProps = {
   durationMin?: number;
   workingHours?: string;
   category: 'food' | 'clothes';
+  description?: string;
+  isFilterActive: boolean;
   onViewReviews?: (id: string) => void;
   onGetDirections?: (id: string) => void;
 };
@@ -29,6 +31,8 @@ export default function RestaurantCard({
   durationMin,
   workingHours,
   category,
+  description,
+  isFilterActive,
   onViewReviews,
   onGetDirections,
 }: RestaurantCardProps) {
@@ -86,9 +90,15 @@ export default function RestaurantCard({
         </div>
       ) : (
         <div className="py-3 border-y border-gray-50">
-          <p className="text-xs text-gray-500 font-bold italic">
-            {t('noReviewsHint')}
-          </p>
+          {!isFilterActive && description ? (
+            <p className="text-xs text-gray-500 font-medium line-clamp-2">
+              {description}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500 font-bold italic">
+              {t('noReviewsHint')}
+            </p>
+          )}
         </div>
       )}
 

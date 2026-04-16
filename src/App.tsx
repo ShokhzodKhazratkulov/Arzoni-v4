@@ -380,6 +380,7 @@ function AppContent() {
                   onAddRestaurantClick={() => setIsAddRestaurantOpen(true)}
                   selectedDishes={[selectedDish]}
                   selectedCategory={selectedCategory}
+                  isFilterActive={selectedDish !== 'All' || selectedPriceRange !== 'all'}
                 />
               )}
             </main>

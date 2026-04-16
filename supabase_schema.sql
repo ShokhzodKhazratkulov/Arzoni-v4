@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS listings (
   phone TEXT,
   social_link TEXT,
   google_maps_url TEXT,
+  google_place_id TEXT UNIQUE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

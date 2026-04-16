@@ -7,18 +7,20 @@ import {
   Bell, 
   TrendingUp, 
   ArrowLeft,
-  Send
+  Send,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AdminOverviewPage } from './admin/AdminOverviewPage';
 import { AdminListingsPage } from './admin/AdminListingsPage';
 import { AdminBannersPage } from './admin/AdminBannersPage';
+import { AdminImportPage } from './admin/AdminImportPage';
 
 interface AdminDashboardProps {
   onBack: () => void;
 }
 
-type AdminTab = 'overview' | 'restaurants' | 'banners';
+type AdminTab = 'overview' | 'restaurants' | 'banners' | 'import';
 
 export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const { t } = useTranslation();
@@ -100,6 +102,15 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
             <ImageIcon size={18} />
             Ad Banners
           </button>
+          <button 
+            onClick={() => setActiveTab('import')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'import' ? 'bg-amber-50 text-amber-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <Download size={18} />
+            Google Import
+          </button>
         </aside>
 
         {/* Main Content Area */}
@@ -115,6 +126,10 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
             {activeTab === 'banners' && (
               <AdminBannersPage key="banners" />
+            )}
+
+            {activeTab === 'import' && (
+              <AdminImportPage key="import" />
             )}
           </AnimatePresence>
         </main>
